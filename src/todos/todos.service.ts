@@ -6,6 +6,7 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
+import { TodosGateway } from './todos.gateway';
 
 @Injectable()
 export class TodosService {
@@ -13,6 +14,7 @@ export class TodosService {
     @InjectRepository(Todo)
     private todoRepository: Repository<Todo>,
     private usersService: UsersService,
+    private todosGateway: TodosGateway,
   ) {}
 
   async create(createTodoDto: CreateTodoDto, user: User): Promise<Todo> {
@@ -37,7 +39,18 @@ export class TodosService {
       todo.assignees = [user];
     }
 
-    return await this.todoRepository.save(todo);
+    const savedTodo = await this.todoRepository.save(todo);
+    
+    // 관계 데이터 포함해서 다시 조회
+    const todoWithRelations = await this.todoRepository.findOne({
+      where: { id: savedTodo.id },
+      relations: ['author', 'assignedTo', 'assignees'],
+    });
+
+    // WebSocket으로 실시간 알림
+    this.todosGateway.notifyTodoCreated(todoWithRelations);
+
+    return todoWithRelations;
   }
 
   async findAll(user: User): Promise<Todo[]> {
@@ -100,7 +113,18 @@ export class TodosService {
     }
 
     Object.assign(todo, updateTodoDto);
-    return await this.todoRepository.save(todo);
+    const updatedTodo = await this.todoRepository.save(todo);
+
+    // 관계 데이터 포함해서 다시 조회
+    const todoWithRelations = await this.todoRepository.findOne({
+      where: { id: updatedTodo.id },
+      relations: ['author', 'assignedTo', 'assignees'],
+    });
+
+    // WebSocket으로 실시간 알림
+    this.todosGateway.notifyTodoUpdated(todoWithRelations);
+
+    return todoWithRelations;
   }
 
   async remove(id: string, user: User): Promise<void> {
@@ -112,6 +136,9 @@ export class TodosService {
     }
 
     await this.todoRepository.remove(todo);
+
+    // WebSocket으로 실시간 알림
+    this.todosGateway.notifyTodoDeleted(id);
   }
 
   async updateStatus(id: string, status: string, user: User): Promise<Todo> {
@@ -127,6 +154,17 @@ export class TodosService {
     }
 
     todo.status = status as any;
-    return await this.todoRepository.save(todo);
+    const updatedTodo = await this.todoRepository.save(todo);
+
+    // 관계 데이터 포함해서 다시 조회
+    const todoWithRelations = await this.todoRepository.findOne({
+      where: { id: updatedTodo.id },
+      relations: ['author', 'assignedTo', 'assignees'],
+    });
+
+    // WebSocket으로 실시간 알림
+    this.todosGateway.notifyTodoStatusChanged(todoWithRelations);
+
+    return todoWithRelations;
   }
 } 
