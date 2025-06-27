@@ -17,7 +17,10 @@ export class TodosService {
     private todosGateway: TodosGateway,
   ) {}
 
-  async create(createTodoDto: CreateTodoDto, user: User): Promise<Todo> {
+  async create(createTodoDto: CreateTodoDto, userId: string): Promise<Todo> {
+    // 전달받은 사용자 ID 사용
+    const user = await this.usersService.findOne(userId);
+    
     const todo = this.todoRepository.create({
       ...createTodoDto,
       authorId: user.id,
@@ -53,20 +56,29 @@ export class TodosService {
     return todoWithRelations;
   }
 
-  async findAll(user: User): Promise<Todo[]> {
-    const todos = await this.todoRepository
-      .createQueryBuilder('todo')
-      .leftJoinAndSelect('todo.author', 'author')
-      .leftJoinAndSelect('todo.assignedTo', 'assignedTo')
-      .leftJoinAndSelect('todo.assignees', 'assignees')
-      .orderBy('todo.createdAt', 'DESC')
-      .getMany();
-
-    console.log(`모든 할 일 ${todos.length}개를 조회했습니다.`);
-    return todos;
+  async findAll(userId?: string): Promise<Todo[]> {
+    // userId가 있으면 해당 사용자 관련 할 일만, 없으면 모든 할 일
+    if (userId) {
+      return this.todoRepository
+        .createQueryBuilder('todo')
+        .leftJoinAndSelect('todo.author', 'author')
+        .leftJoinAndSelect('todo.assignedTo', 'assignedTo')
+        .leftJoinAndSelect('todo.assignees', 'assignees')
+        .where('todo.authorId = :userId OR todo.assignedToId = :userId OR assignees.id = :userId', { userId })
+        .orderBy('todo.createdAt', 'DESC')
+        .getMany();
+    } else {
+      return this.todoRepository
+        .createQueryBuilder('todo')
+        .leftJoinAndSelect('todo.author', 'author')
+        .leftJoinAndSelect('todo.assignedTo', 'assignedTo')
+        .leftJoinAndSelect('todo.assignees', 'assignees')
+        .orderBy('todo.createdAt', 'DESC')
+        .getMany();
+    }
   }
 
-  async findOne(id: string, user: User): Promise<Todo> {
+  async findOne(id: string, userId?: string): Promise<Todo> {
     const todo = await this.todoRepository.findOne({
       where: { id },
       relations: ['author', 'assignedTo', 'assignees'],
@@ -76,25 +88,11 @@ export class TodosService {
       throw new NotFoundException('할 일을 찾을 수 없습니다.');
     }
 
-    // 작성자이거나 할당된 사용자이거나 담당자 중 하나인지 확인
-    const hasAccess = todo.authorId === user.id || 
-                     todo.assignedToId === user.id || 
-                     todo.assignees?.some(assignee => assignee.id === user.id);
-
-    if (!hasAccess) {
-      throw new ForbiddenException('접근 권한이 없습니다.');
-    }
-
     return todo;
   }
 
-  async update(id: string, updateTodoDto: UpdateTodoDto, user: User): Promise<Todo> {
-    const todo = await this.findOne(id, user);
-
-    // 작성자만 수정 가능
-    if (todo.authorId !== user.id) {
-      throw new ForbiddenException('수정 권한이 없습니다.');
-    }
+  async update(id: string, updateTodoDto: UpdateTodoDto, userId?: string): Promise<Todo> {
+    const todo = await this.findOne(id, userId);
 
     // 날짜 변환
     if (updateTodoDto.startDate) {
@@ -127,32 +125,16 @@ export class TodosService {
     return todoWithRelations;
   }
 
-  async remove(id: string, user: User): Promise<void> {
-    const todo = await this.findOne(id, user);
-
-    // 작성자만 삭제 가능
-    if (todo.authorId !== user.id) {
-      throw new ForbiddenException('삭제 권한이 없습니다.');
-    }
-
+  async remove(id: string, userId?: string): Promise<void> {
+    const todo = await this.findOne(id, userId);
     await this.todoRepository.remove(todo);
 
     // WebSocket으로 실시간 알림
     this.todosGateway.notifyTodoDeleted(id);
   }
 
-  async updateStatus(id: string, status: string, user: User): Promise<Todo> {
-    const todo = await this.findOne(id, user);
-
-    // 작성자이거나 담당자만 상태 변경 가능
-    const canUpdate = todo.authorId === user.id || 
-                     todo.assignedToId === user.id || 
-                     todo.assignees?.some(assignee => assignee.id === user.id);
-
-    if (!canUpdate) {
-      throw new ForbiddenException('상태 변경 권한이 없습니다.');
-    }
-
+  async updateStatus(id: string, status: string, userId?: string): Promise<Todo> {
+    const todo = await this.findOne(id, userId);
     todo.status = status as any;
     const updatedTodo = await this.todoRepository.save(todo);
 
