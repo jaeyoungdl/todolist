@@ -46,13 +46,10 @@ export class TodosService {
       .leftJoinAndSelect('todo.author', 'author')
       .leftJoinAndSelect('todo.assignedTo', 'assignedTo')
       .leftJoinAndSelect('todo.assignees', 'assignees')
-      .where('todo.authorId = :userId', { userId: user.id })
-      .orWhere('todo.assignedToId = :userId', { userId: user.id })
-      .orWhere('assignees.id = :userId', { userId: user.id })
       .orderBy('todo.createdAt', 'DESC')
       .getMany();
 
-    console.log(`사용자 ${user.id}의 할 일 ${todos.length}개를 조회했습니다.`);
+    console.log(`모든 할 일 ${todos.length}개를 조회했습니다.`);
     return todos;
   }
 
