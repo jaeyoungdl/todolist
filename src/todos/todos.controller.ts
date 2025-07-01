@@ -61,7 +61,9 @@ export class TodosController {
   }
 
   @Sse('events')
-  sendEvents(): Observable<MessageEvent> {
+  sendEvents(@Query('token') token?: string): Observable<MessageEvent> {
+    // TODO: 토큰 검증 로직 추가 (필요시)
+    console.log('SSE 연결 요청, 토큰:', token ? '있음' : '없음');
     return this.eventSubject.asObservable();
   }
 
