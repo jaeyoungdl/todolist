@@ -11,7 +11,7 @@ export class TodosController {
   constructor(private readonly todosService: TodosService) {}
 
   @Post()
-  async create(@Body() createTodoDto: CreateTodoDto, @Body('userId') userId: string) {
+  async create(@Body() createTodoDto: CreateTodoDto, @Query('userId') userId: string) {
     const todo = await this.todosService.create(createTodoDto, userId);
     
     // SSE 이벤트 전송
@@ -38,7 +38,7 @@ export class TodosController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto, @Body('userId') userId: string) {
+  async update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto, @Query('userId') userId: string) {
     const todo = await this.todosService.update(id, updateTodoDto, userId);
     
     // SSE 이벤트 전송
@@ -48,7 +48,7 @@ export class TodosController {
   }
 
   @Patch(':id/status')
-  async updateStatus(@Param('id') id: string, @Body('status') status: string, @Body('userId') userId: string) {
+  async updateStatus(@Param('id') id: string, @Body('status') status: string, @Query('userId') userId: string) {
     const todo = await this.todosService.updateStatus(id, status, userId);
     
     // SSE 이벤트 전송
