@@ -20,6 +20,13 @@ export class TodosController {
     return todo;
   }
 
+  @Sse('events')
+  sendEvents(@Query('token') token?: string): Observable<MessageEvent> {
+    // TODO: 토큰 검증 로직 추가 (필요시)
+    console.log('SSE 연결 요청, 토큰:', token ? '있음' : '없음');
+    return this.eventSubject.asObservable();
+  }
+
   @Get()
   findAll(@Query('userId') userId: string) {
     return this.todosService.findAll(userId);
@@ -58,13 +65,6 @@ export class TodosController {
     this.emitEvent('todoDeleted', { id });
     
     return { message: '할 일이 삭제되었습니다.' };
-  }
-
-  @Sse('events')
-  sendEvents(@Query('token') token?: string): Observable<MessageEvent> {
-    // TODO: 토큰 검증 로직 추가 (필요시)
-    console.log('SSE 연결 요청, 토큰:', token ? '있음' : '없음');
-    return this.eventSubject.asObservable();
   }
 
   private emitEvent(type: string, data: any) {
