@@ -1,9 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Req, Sse, MessageEvent } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, Sse, MessageEvent } from '@nestjs/common';
 import { TodosService } from './todos.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { Observable, Subject } from 'rxjs';
-import { map } from 'rxjs/operators';
 
 @Controller('todos')
 export class TodosController {
@@ -12,8 +11,8 @@ export class TodosController {
   constructor(private readonly todosService: TodosService) {}
 
   @Post()
-  async create(@Body() createTodoDto: CreateTodoDto, @Req() req) {
-    const todo = await this.todosService.create(createTodoDto, req.user.id);
+  async create(@Body() createTodoDto: CreateTodoDto, @Body('userId') userId: string) {
+    const todo = await this.todosService.create(createTodoDto, userId);
     
     // SSE 이벤트 전송
     this.emitEvent('todoCreated', todo);
@@ -32,8 +31,8 @@ export class TodosController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto, @Req() req) {
-    const todo = await this.todosService.update(id, updateTodoDto, req.user.id);
+  async update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto, @Body('userId') userId: string) {
+    const todo = await this.todosService.update(id, updateTodoDto, userId);
     
     // SSE 이벤트 전송
     this.emitEvent('todoUpdated', todo);
@@ -42,8 +41,8 @@ export class TodosController {
   }
 
   @Patch(':id/status')
-  async updateStatus(@Param('id') id: string, @Body() body: { status: string }, @Req() req) {
-    const todo = await this.todosService.updateStatus(id, body.status, req.user.id);
+  async updateStatus(@Param('id') id: string, @Body('status') status: string, @Body('userId') userId: string) {
+    const todo = await this.todosService.updateStatus(id, status, userId);
     
     // SSE 이벤트 전송
     this.emitEvent('todoStatusChanged', todo);
@@ -52,8 +51,8 @@ export class TodosController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string, @Req() req) {
-    await this.todosService.remove(id, req.user.id);
+  async remove(@Param('id') id: string, @Query('userId') userId: string) {
+    await this.todosService.remove(id, userId);
     
     // SSE 이벤트 전송
     this.emitEvent('todoDeleted', { id });
